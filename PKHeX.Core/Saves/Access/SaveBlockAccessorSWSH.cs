@@ -20,6 +20,9 @@ namespace PKHeX.Core
         public FashionUnlock8 Fashion { get; }
         public RaidSpawnList8 Raid { get; }
 
+
+        public Dictionary<uint, object> BlockDict;
+
         public SaveBlockAccessorSWSH(SAV8SWSH sav)
         {
             BlockInfo = sav.AllBlocks;
@@ -37,6 +40,27 @@ namespace PKHeX.Core
             Records = new Record8(sav, GetBlock(KRecord), Core.Records.MaxType_SWSH);
             Fashion = new FashionUnlock8(sav, GetBlock(KFashionUnlock));
             Raid = new RaidSpawnList8(sav, GetBlock(KRaidSpawnList));
+
+            BlockDict = new Dictionary<uint, object>
+            {
+                {KBox, BoxInfo},
+                //{KMysteryGift,},
+                {KItem, Items},
+                //{KCoordinates,},
+                {KBoxLayout, BoxLayout},
+                {KMisc, Misc},
+                {KParty, PartyInfo},
+                {KDaycare, Daycare},
+                {KRecord, Records},
+                {KZukan, Zukan},
+                {KTrainerCard, TrainerCard},
+                {KPlayTime, Played},
+                {KRaidSpawnList, Raid},
+                //{KRepel,},
+                {KFused, Fused},
+                {KFashionUnlock, Fashion},
+                {KMyStatus, MyStatus},
+            };
         }
 
         /* To dump key list of current format, use the following in the immediate window, and update Meta8
