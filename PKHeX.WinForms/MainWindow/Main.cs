@@ -579,10 +579,10 @@ namespace PKHeX.WinForms
         private void OpenFile(byte[] input, string path, string ext)
         {
             var obj = FileUtil.GetSupportedFile(input, ext, C_SAV.SAV);
-            // dump swsh blocks
 
             if (obj is SAV8SWSH swshSav)
             {
+                // dump swsh blocks
                 string dumpDir = Path.Combine(Path.GetDirectoryName(path), "dump");
                 Directory.CreateDirectory(dumpDir);
                 for (int i = 0; i < swshSav.AllBlocks.Count; i++)
@@ -592,13 +592,25 @@ namespace PKHeX.WinForms
                         continue;
 
                     string curBlockName = curBlock.Key.ToString("X8");
-                    if (swshSav.Blocks.BlockDict.TryGetValue(curBlock.Key, out object curBlockObj))
+                    if (swshSav.Blocks.KeyAccessorMap.TryGetValue(curBlock.Key, out object curBlockObj))
                     {
                         curBlockName += Path.GetExtension(curBlockObj.GetType().ToString());
                     }
 
                     using var outFileStream = new FileStream(Path.Combine(dumpDir, curBlockName), FileMode.Create, FileAccess.Write);
                     outFileStream.Write(curBlock.Data, 0, curBlock.Data.Length);
+                }
+
+                // inject blocks
+                string injectDir = Path.Combine(Path.GetDirectoryName(path), "inject");
+                if (Directory.Exists(injectDir))
+                {
+                    string[] injectBlockFiles = Directory.GetFiles(injectDir);
+                    foreach (string injectFileName in injectBlockFiles)
+                    {
+                        uint injectKey = Convert.ToUInt32(Path.GetFileNameWithoutExtension(injectFileName), 16);
+                        swshSav.Blocks.KeyBlockMap[injectKey].Data = File.ReadAllBytes(Path.Combine(injectDir, injectFileName));
+                    }
                 }
             }
 

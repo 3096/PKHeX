@@ -6,7 +6,7 @@ namespace PKHeX.Core
     public class SaveBlockAccessorSWSH : ISaveBlockAccessor<SCBlock>, ISaveBlock8Main
     {
         public IReadOnlyList<SCBlock> BlockInfo { get; }
-        public Dictionary<uint, SCBlock> BlockDictionary { get; }
+        public Dictionary<uint, SCBlock> KeyBlockMap { get; }
         public Box8 BoxInfo { get; }
         public Party8 PartyInfo { get; }
         public MyItem Items { get; }
@@ -23,12 +23,12 @@ namespace PKHeX.Core
         public RaidSpawnList8 Raid { get; }
 
 
-        public Dictionary<uint, object> BlockDict;
+        public Dictionary<uint, object> KeyAccessorMap;
 
         public SaveBlockAccessorSWSH(SAV8SWSH sav)
         {
             BlockInfo = sav.AllBlocks;
-            BlockDictionary = sav.AllBlocks.ToDictionary(z => z.Key);
+            KeyBlockMap = sav.AllBlocks.ToDictionary(z => z.Key);
             BoxInfo = new Box8(sav, GetBlock(KBox));
             PartyInfo = new Party8(sav, GetBlock(KParty));
             Items = new MyItem8(sav, GetBlock(KItem));
@@ -44,7 +44,7 @@ namespace PKHeX.Core
             Fashion = new FashionUnlock8(sav, GetBlock(KFashionUnlock));
             Raid = new RaidSpawnList8(sav, GetBlock(KRaidSpawnList));
 
-            BlockDict = new Dictionary<uint, object>
+            KeyAccessorMap = new Dictionary<uint, object>
             {
                 {KBox, BoxInfo},
                 //{KMysteryGift,},
@@ -88,6 +88,6 @@ namespace PKHeX.Core
         private const uint KFashionUnlock = 0xd224f9ac; // Fashion unlock bool array (owned for (each apparel type) * 0x80, then another array for "new")
         private const uint KMyStatus = 0xf25c070e; // Trainer Details
 
-        public SCBlock GetBlock(uint key) => BlockDictionary[key];
+        public SCBlock GetBlock(uint key) => KeyBlockMap[key];
     }
 }
