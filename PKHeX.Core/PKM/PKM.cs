@@ -460,6 +460,14 @@ namespace PKHeX.Core
             }
         }
 
+        public void SetMoves(IReadOnlyList<int> value)
+        {
+            Move1 = value.Count > 0 ? value[0] : 0;
+            Move2 = value.Count > 1 ? value[1] : 0;
+            Move3 = value.Count > 2 ? value[2] : 0;
+            Move4 = value.Count > 3 ? value[3] : 0;
+        }
+
         public int[] RelearnMoves
         {
             get => new[] { RelearnMove1, RelearnMove2, RelearnMove3, RelearnMove4 };
@@ -929,7 +937,8 @@ namespace PKHeX.Core
         /// </remarks>
         public virtual void SetShiny()
         {
-            do { PID = PKX.GetRandomPID(Species, Gender, Version, Nature, AltForm, PID); }
+            var rnd = Util.Rand;
+            do { PID = PKX.GetRandomPID(rnd, Species, Gender, Version, Nature, AltForm, PID); }
             while (!IsShiny);
             if (Format >= 6 && (Gen3 || Gen4 || Gen5))
                 EncryptionConstant = PID;
@@ -940,7 +949,8 @@ namespace PKHeX.Core
         /// </summary>
         public void SetShinySID()
         {
-            if (IsShiny) return;
+            if (IsShiny)
+                return;
             var xor = TID ^ (PID >> 16) ^ (PID & 0xFFFF);
             SID = (int)(xor & 0xFFF8) | Util.Rand.Next(8);
         }
@@ -954,7 +964,9 @@ namespace PKHeX.Core
         /// </remarks>
         public void SetPIDGender(int gender)
         {
-            do PID = PKX.GetRandomPID(Species, gender, Version, Nature, AltForm, PID); while (IsShiny);
+            var rnd = Util.Rand;
+            do PID = PKX.GetRandomPID(rnd, Species, gender, Version, Nature, AltForm, PID);
+            while (IsShiny);
             if (Format >= 6 && (Gen3 || Gen4 || Gen5))
                 EncryptionConstant = PID;
         }
@@ -968,7 +980,9 @@ namespace PKHeX.Core
         /// </remarks>
         public void SetPIDNature(int nature)
         {
-            do PID = PKX.GetRandomPID(Species, Gender, Version, nature, AltForm, PID); while (IsShiny);
+            var rnd = Util.Rand;
+            do PID = PKX.GetRandomPID(rnd, Species, Gender, Version, nature, AltForm, PID);
+            while (IsShiny);
             if (Format >= 6 && (Gen3 || Gen4 || Gen5))
                 EncryptionConstant = PID;
         }
@@ -999,8 +1013,9 @@ namespace PKHeX.Core
                 return SetRandomIVsGO();
 
             int[] ivs = new int[6];
+            var rnd = Util.Rand;
             for (int i = 0; i < 6; i++)
-                ivs[i] = Util.Rand.Next(MaxIV + 1);
+                ivs[i] = rnd.Next(MaxIV + 1);
 
             int count = flawless ?? GetFlawlessIVCount();
             if (count != 0)
@@ -1015,10 +1030,11 @@ namespace PKHeX.Core
         private int[] SetRandomIVsGO()
         {
             int[] ivs = new int[6];
-            ivs[0] = (Util.Rand.Next(16) << 1) | 1; // hp
-            ivs[1] = ivs[4] = (Util.Rand.Next(16) << 1) | 1; // attack
-            ivs[2] = ivs[5] = (Util.Rand.Next(16) << 1) | 1; // defense
-            ivs[3] = Util.Rand.Next(MaxIV + 1); // speed
+            var rnd = Util.Rand;
+            ivs[0] = (rnd.Next(16) << 1) | 1; // hp
+            ivs[1] = ivs[4] = (rnd.Next(16) << 1) | 1; // attack
+            ivs[2] = ivs[5] = (rnd.Next(16) << 1) | 1; // defense
+            ivs[3] = rnd.Next(MaxIV + 1); // speed
             return IVs = ivs;
         }
 
@@ -1028,14 +1044,15 @@ namespace PKHeX.Core
         /// <param name="template">IV template to generate from</param>
         /// <param name="flawless">Count of flawless IVs to set. If none provided, a count will be detected.</param>
         /// <returns>Randomized IVs if desired.</returns>
-        public int[] SetRandomIVs(int[] template, int? flawless = null)
+        public int[] SetRandomIVs(IReadOnlyList<int> template, int? flawless = null)
         {
             int count = flawless ?? GetFlawlessIVCount();
             int[] ivs = new int[6];
+            var rnd = Util.Rand;
             do
             {
                 for (int i = 0; i < 6; i++)
-                    ivs[i] = template[i] < 0 ? Util.Rand.Next(MaxIV + 1) : template[i];
+                    ivs[i] = template[i] < 0 ? rnd.Next(MaxIV + 1) : template[i];
             } while (ivs.Count(z => z == MaxIV) < count);
 
             IVs = ivs;

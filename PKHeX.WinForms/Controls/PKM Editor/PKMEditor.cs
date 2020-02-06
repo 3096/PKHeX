@@ -603,7 +603,7 @@ namespace PKHeX.WinForms.Controls
             }
             if (ModifierKeys.HasFlag(Keys.Shift))
             {
-                CB_Ball.SelectedValue = BallRandomizer.ApplyBallLegalByColor(Entity);
+                CB_Ball.SelectedValue = BallApplicator.ApplyBallLegalByColor(Entity);
                 return;
             }
 
@@ -702,6 +702,7 @@ namespace PKHeX.WinForms.Controls
             Entity.SetMoves(m);
             FieldsLoaded = false;
             LoadMoves(Entity);
+            ClickPP(null, EventArgs.Empty);
             FieldsLoaded = true;
             return true;
         }
@@ -733,7 +734,7 @@ namespace PKHeX.WinForms.Controls
 
         private bool SetSuggestedMetLocation(bool silent = false)
         {
-            var encounter = Legality.GetSuggestedMetInfo();
+            var encounter = EncounterSuggestion.GetSuggestedMetInfo(Entity);
             if (encounter == null || (Entity.Format >= 3 && encounter.Location < 0))
             {
                 if (!silent)
@@ -741,9 +742,9 @@ namespace PKHeX.WinForms.Controls
                 return false;
             }
 
-            int level = encounter.Level;
+            int level = encounter.LevelMin;
             int location = encounter.Location;
-            int minlvl = Legal.GetLowestLevel(Entity, encounter.LevelMin);
+            int minlvl = EncounterSuggestion.GetLowestLevel(Entity, encounter.LevelMin);
             if (minlvl == 0)
                 minlvl = level;
 
@@ -765,7 +766,8 @@ namespace PKHeX.WinForms.Controls
 
             if (Entity.Format >= 3)
             {
-                TB_MetLevel.Text = level.ToString();
+                Entity.Met_Location = location;
+                TB_MetLevel.Text = encounter.GetSuggestedMetLevel(Entity).ToString();
                 CB_MetLocation.SelectedValue = location;
 
                 if (Entity.Gen6 && Entity.WasEgg && ModifyPKM)

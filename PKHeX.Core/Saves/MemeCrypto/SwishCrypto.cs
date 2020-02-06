@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 
 namespace PKHeX.Core
@@ -97,10 +94,19 @@ namespace PKHeX.Core
         /// </remarks>
         public static IReadOnlyList<SCBlock> Decrypt(byte[] data)
         {
+            var temp = GetDecryptedRawData(data);
+            return ReadBlocks(temp);
+        }
+
+        /// <summary>
+        /// Decrypts the save data, with raw block data concatenated together.
+        /// </summary>
+        public static byte[] GetDecryptedRawData(byte[] data)
+        {
             // de-ref from input data, since we're going to modify the contents in-place
             var temp = (byte[])data.Clone();
             CryptStaticXorpadBytes(temp);
-            return ReadBlocks(temp);
+            return temp;
         }
 
         private static IReadOnlyList<SCBlock> ReadBlocks(byte[] data)
@@ -123,17 +129,7 @@ namespace PKHeX.Core
         /// <returns>Encrypted save data.</returns>
         public static byte[] Encrypt(IReadOnlyList<SCBlock> blocks)
         {
-            using var ms = new MemoryStream();
-            foreach (var block in blocks)
-            {
-                var enc_data = block.GetEncryptedData();
-                ms.Write(enc_data, 0, enc_data.Length);
-            }
-
-            // Allocate hash bytes at the end
-            var result = new byte[ms.Length + SIZE_HASH];
-            ms.ToArray().CopyTo(result, 0);
-
+            var result = GetDecryptedRawData(blocks);
             CryptStaticXorpadBytes(result);
 
             var hash = ComputeHash(result);
@@ -141,314 +137,23 @@ namespace PKHeX.Core
 
             return result;
         }
-    }
-
-    /// <summary>
-    /// Block of <see cref="Data"/> obtained from a <see cref="SwishCrypto"/> encrypted block storage binary.
-    /// </summary>
-    public sealed class SCBlock : BlockInfo
-    {
-        /// <summary>
-        /// Used to encrypt the rest of the block.
-        /// </summary>
-        public uint Key { get; set; }
 
         /// <summary>
-        /// What kind of block is it?
+        /// Tries to encrypt the save data.
         /// </summary>
-        public SCBlockType Type { get; set; }
-
-        /// <summary>
-        /// For <see cref="SCBlockType.Array"/>: What kind of array is it?
-        /// </summary>
-        public SCBlockType SubType { get; set; }
-
-        /// <summary>
-        /// Decrypted data for this block.
-        /// </summary>
-        public byte[] Data = Array.Empty<byte>();
-
-        private SCBlock(uint key) => Key = key;
-        internal SCBlock() { }
-        protected override bool ChecksumValid(byte[] data) => true;
-        protected override void SetChecksum(byte[] data) { }
-
-        public SCBlock Clone()
+        /// <returns>Raw save data without the final xorpad layer.</returns>
+        public static byte[] GetDecryptedRawData(IEnumerable<SCBlock> blocks)
         {
-            var block = (SCBlock)MemberwiseClone();
-            block.Data = (byte[])Data.Clone();
-            return block;
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+            foreach (var block in blocks)
+                block.WriteBlock(bw);
+
+            // Allocate hash bytes at the end
+            for (int i = 0; i < SIZE_HASH; i++)
+                bw.Write((byte)0);
+
+            return ms.ToArray();
         }
-
-        private static int GetArrayEntrySize(SCBlockType type)
-        {
-            switch (type)
-            {
-                case SCBlockType.Common3:
-                case SCBlockType.Single1:
-                case SCBlockType.Single5:
-                    return 1;
-                case SCBlockType.Single2:
-                case SCBlockType.Single6:
-                    return 2;
-                case SCBlockType.Single3:
-                case SCBlockType.Single7:
-                case SCBlockType.Single9:
-                    return 4;
-                case SCBlockType.Single4:
-                case SCBlockType.Single8:
-                case SCBlockType.Single10:
-                    return 8;
-
-                default:
-                    throw new ArgumentException(nameof(type));
-            }
-        }
-
-        private static void XorshiftAdvance(ref uint key)
-        {
-            key ^= (key << 2);
-            key ^= (key >> 15);
-            key ^= (key << 13);
-        }
-
-        private static uint PopCount(ulong key)
-        {
-            // https://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
-            const ulong m1 = 0x5555555555555555;
-            const ulong m2 = 0x3333333333333333;
-            const ulong m4 = 0x0f0f0f0f0f0f0f0f;
-            // const ulong m8 = 0x00ff00ff00ff00ff;
-            // const ulong m16 = 0x0000ffff0000ffff;
-            // const ulong m32 = 0x00000000ffffffff;
-            const ulong h01 = 0x0101010101010101;
-            key -= (key >> 1) & m1;
-            key = (key & m2) + ((key >> 2) & m2);
-            key = (key + (key >> 4)) & m4;
-            return (uint)((key * h01) >> 56);
-        }
-
-        private byte[] GetKeyStream(int start, int size)
-        {
-            // Initialize the xorshift rng.
-            var key = Key;
-            var pop_count = PopCount(Key);
-            for (var i = 0; i < pop_count; i++)
-                XorshiftAdvance(ref key);
-
-            int ofs = 0;
-            int out_ofs = 0;
-            while (ofs + 4 < start)
-            {
-                // Discard keystream until we're at offset.
-                XorshiftAdvance(ref key);
-                ofs += 4;
-            }
-
-            var result = new byte[size];
-            // If we aren't aligned, handle that.
-            if (ofs < start)
-            {
-                int cur_size = Math.Min(size, 4 - (start - ofs));
-                Array.Copy(BitConverter.GetBytes(key), start - ofs, result, out_ofs, cur_size);
-                out_ofs += cur_size;
-                XorshiftAdvance(ref key);
-            }
-
-            // Generate keystream until we're done.
-            while (out_ofs < size)
-            {
-                int cur_size = Math.Min(size - out_ofs, 4);
-                Array.Copy(BitConverter.GetBytes(key), 0, result, out_ofs, cur_size);
-                out_ofs += cur_size;
-                XorshiftAdvance(ref key);
-            }
-
-            return result;
-        }
-
-        private byte[] CryptBytes(byte[] data, int input_offset, int start, int size)
-        {
-            var result = new byte[size];
-            Array.Copy(data, input_offset + start, result, 0, result.Length);
-
-            var key_stream = GetKeyStream(start, size);
-            for (var i = 0; i < result.Length; i++)
-                result[i] ^= key_stream[i];
-            return result;
-        }
-
-        private int GetEncryptedDataSize()
-        {
-            const int size = 4 + 1; // key + type
-            switch (Type)
-            {
-                case SCBlockType.Common1:
-                case SCBlockType.Common2:
-                case SCBlockType.Common3:
-                    return size;
-                case SCBlockType.Data:
-                    return size + 4 + Data.Length;
-                case SCBlockType.Array:
-                    return size + 5 + Data.Length;
-                case SCBlockType.Single1:
-                case SCBlockType.Single2:
-                case SCBlockType.Single3:
-                case SCBlockType.Single4:
-                case SCBlockType.Single5:
-                case SCBlockType.Single6:
-                case SCBlockType.Single7:
-                case SCBlockType.Single8:
-                case SCBlockType.Single9:
-                case SCBlockType.Single10:
-                    return size + Data.Length;
-                default:
-                    throw new ArgumentException(nameof(Type));
-            }
-        }
-
-        /// <summary>
-        /// Encrypts the <see cref="Data"/> according to the <see cref="Type"/> and <see cref="SubType"/>.
-        /// </summary>
-        /// <returns>Encrypted data.</returns>
-        public byte[] GetEncryptedData()
-        {
-            var result = new byte[GetEncryptedDataSize()];
-            BitConverter.GetBytes(Key).CopyTo(result, 0);
-            result[4] = (byte)Type;
-            var out_ofs = 5;
-
-            if (Type == SCBlockType.Data)
-            {
-                BitConverter.GetBytes(Data.Length).CopyTo(result, out_ofs);
-                out_ofs += 4;
-            }
-            else if (Type == SCBlockType.Array)
-            {
-                BitConverter.GetBytes(Data.Length / GetArrayEntrySize(SubType)).CopyTo(result, out_ofs);
-                result[out_ofs + 4] = (byte)SubType;
-                out_ofs += 5;
-            }
-
-            Data.CopyTo(result, out_ofs);
-            CryptBytes(result, 4, 0, result.Length - 4).CopyTo(result, 4);
-
-            return result;
-        }
-
-        /// <summary>
-        /// Reads a new <see cref="SCBlock"/> object from the <see cref="data"/>, determining the <see cref="Type"/> and <see cref="SubType"/> during read.
-        /// </summary>
-        /// <param name="data">Decrypted data</param>
-        /// <param name="offset">Offset the block is to be read from (modified to offset by the amount of bytes consumed).</param>
-        /// <returns>New object containing all info for the block.</returns>
-        public static SCBlock ReadFromOffset(byte[] data, ref int offset)
-        {
-            // Create block, parse its key.
-            var key = BitConverter.ToUInt32(data, offset);
-            offset += 4;
-            var block = new SCBlock(key);
-
-            // Parse the block's type
-            block.Type = (SCBlockType)block.CryptBytes(data, offset, 0, 1)[0];
-
-            switch (block.Type)
-            {
-                case SCBlockType.Common1:
-                case SCBlockType.Common2:
-                case SCBlockType.Common3:
-                    // Block types A, B, Common are empty, and have no extra data.
-                    offset++;
-                    break;
-
-                case SCBlockType.Data:
-                    var num_bytes = BitConverter.ToInt32(block.CryptBytes(data, offset, 1, 4), 0);
-                    block.Data = block.CryptBytes(data, offset, 5, num_bytes);
-                    offset += 5 + num_bytes;
-                    break;
-
-                case SCBlockType.Array:
-                    var num_entries = BitConverter.ToInt32(block.CryptBytes(data, offset, 1, 4), 0);
-                    block.SubType = (SCBlockType)block.CryptBytes(data, offset, 5, 1)[0];
-                    switch (block.SubType)
-                    {
-                        case SCBlockType.Common3:
-                            // This is an array of booleans.
-                            block.Data = block.CryptBytes(data, offset, 6, num_entries);
-                            offset += 6 + num_entries;
-                            Debug.Assert(block.Data.All(entry => entry <= 1));
-                            break;
-
-                        case SCBlockType.Single1:
-                        case SCBlockType.Single2:
-                        case SCBlockType.Single3:
-                        case SCBlockType.Single4:
-                        case SCBlockType.Single5:
-                        case SCBlockType.Single6:
-                        case SCBlockType.Single7:
-                        case SCBlockType.Single8:
-                        case SCBlockType.Single9:
-                        case SCBlockType.Single10:
-                            var entry_size = GetArrayEntrySize(block.SubType);
-                            block.Data = block.CryptBytes(data, offset, 6, num_entries * entry_size);
-                            offset += 6 + (num_entries * entry_size);
-                            break;
-
-                        default:
-                            throw new ArgumentException(nameof(block.SubType));
-                    }
-                    break;
-
-                case SCBlockType.Single1:
-                case SCBlockType.Single2:
-                case SCBlockType.Single3:
-                case SCBlockType.Single4:
-                case SCBlockType.Single5:
-                case SCBlockType.Single6:
-                case SCBlockType.Single7:
-                case SCBlockType.Single8:
-                case SCBlockType.Single9:
-                case SCBlockType.Single10:
-                    {
-                        var entry_size = GetArrayEntrySize(block.Type);
-                        block.Data = block.CryptBytes(data, offset, 1, entry_size);
-                        offset += 1 + entry_size;
-                        break;
-                    }
-                default:
-                    throw new ArgumentException(nameof(block.Type));
-            }
-
-            return block;
-        }
-    }
-
-    /// <summary>
-    /// Block type for a <see cref="SCBlock"/>.
-    /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1027:Mark enums with FlagsAttribute", Justification = "NOT FLAGS")]
-    public enum SCBlockType
-    {
-        None = 0,
-
-        // All aliases of each other
-        Common1 = 1,
-        Common2 = 2,
-        Common3 = 3,
-
-        Data = 4,
-
-        Array = 5,
-
-        Single1 = 8,
-        Single2 = 9,
-        Single3 = 10,
-        Single4 = 11,
-        Single5 = 12,
-        Single6 = 13,
-        Single7 = 14,
-        Single8 = 15,
-        Single9 = 16,
-        Single10 = 17,
     }
 }

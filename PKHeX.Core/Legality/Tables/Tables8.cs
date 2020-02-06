@@ -181,7 +181,7 @@ namespace PKHeX.Core
             1105, 1106, 1107, 1108,
         };
 
-        internal static readonly ushort[] HeldItems_SWSH = ArrayUtil.ConcatAll(new ushort[1], Pouch_Items_SWSH, Pouch_Berries_SWSH, Pouch_Medicine_SWSH, TR_SWSH, Pouch_Treasure_SWSH, Pouch_Ingredients_SWSH);
+        internal static readonly ushort[] HeldItems_SWSH = ArrayUtil.ConcatAll(Pouch_Items_SWSH, Pouch_Berries_SWSH, Pouch_Medicine_SWSH, TR_SWSH, Pouch_Treasure_SWSH, Pouch_Ingredients_SWSH);
 
         internal static readonly HashSet<int> WildPokeballs8 = new HashSet<int> {
             (int)Ball.Poke,
@@ -355,7 +355,6 @@ namespace PKHeX.Core
             (int)Species.Cubchoo, (int)Species.Beartic,
             (int)Species.Skorupi, (int)Species.Drapion,
             (int)Species.Maractus,
-            (int)Species.Mimikyu,
             (int)Species.Bergmite, (int)Species.Avalugg,
 
             // Alolan Forms
@@ -401,9 +400,6 @@ namespace PKHeX.Core
             312, // Dread Plate
             313, // Iron Plate
             // 644, // Pixie Plate
-
-            1114, // Star Sweet
-            1115, // Ribbon Sweet
 
             // 1279, // ★And458 (Jangmo-o)
             // 1280, // ★And15 (Larvitar)

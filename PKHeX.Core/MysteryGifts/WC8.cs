@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using static PKHeX.Core.RibbonIndex;
@@ -246,27 +247,27 @@ namespace PKHeX.Core
 
         public override int Location { get => MetLocation; set => MetLocation = (ushort)value; }
 
-        public override int[] Moves
+        public override IReadOnlyList<int> Moves
         {
             get => new[] { Move1, Move2, Move3, Move4 };
             set
             {
-                if (value.Length > 0) Move1 = value[0];
-                if (value.Length > 1) Move2 = value[1];
-                if (value.Length > 2) Move3 = value[2];
-                if (value.Length > 3) Move4 = value[3];
+                if (value.Count > 0) Move1 = value[0];
+                if (value.Count > 1) Move2 = value[1];
+                if (value.Count > 2) Move3 = value[2];
+                if (value.Count > 3) Move4 = value[3];
             }
         }
 
-        public override int[] RelearnMoves
+        public override IReadOnlyList<int> Relearn
         {
             get => new[] { RelearnMove1, RelearnMove2, RelearnMove3, RelearnMove4 };
             set
             {
-                if (value.Length > 0) RelearnMove1 = value[0];
-                if (value.Length > 1) RelearnMove2 = value[1];
-                if (value.Length > 2) RelearnMove3 = value[2];
-                if (value.Length > 3) RelearnMove4 = value[3];
+                if (value.Count > 0) RelearnMove1 = value[0];
+                if (value.Count > 1) RelearnMove2 = value[1];
+                if (value.Count > 2) RelearnMove3 = value[2];
+                if (value.Count > 3) RelearnMove4 = value[3];
             }
         }
 
@@ -298,7 +299,7 @@ namespace PKHeX.Core
             if (!IsPokémon)
                 throw new ArgumentException(nameof(IsPokémon));
 
-            int currentLevel = Level > 0 ? Level : Util.Rand.Next(100) + 1;
+            int currentLevel = Level > 0 ? Level : Util.Rand.Next(1, 101);
             int metLevel = MetLevel > 0 ? MetLevel : currentLevel;
             var pi = PersonalTable.SWSH.GetFormeEntry(Species, Form);
             var OT = GetOT(SAV.Language);
@@ -355,7 +356,8 @@ namespace PKHeX.Core
             if ((SAV.Generation > Format && OriginGame == 0) || !CanBeReceivedByVersion(pk.Version))
             {
                 // give random valid game
-                do { pk.Version = (int)GameVersion.SW + Util.Rand.Next(2); }
+                var rnd = Util.Rand;
+                do { pk.Version = (int)GameVersion.SW + rnd.Next(2); }
                 while (!CanBeReceivedByVersion(pk.Version));
             }
 
@@ -389,8 +391,8 @@ namespace PKHeX.Core
                 SetEggMetData(pk);
             pk.CurrentFriendship = pk.IsEgg ? pi.HatchCycles : pi.BaseFriendship;
 
-            pk.HeightScalar = PokeSizeExtensions.GetRandomPokeSize();
-            pk.WeightScalar = PokeSizeExtensions.GetRandomPokeSize();
+            pk.HeightScalar = PokeSizeExtensions.GetRandomScalar();
+            pk.WeightScalar = PokeSizeExtensions.GetRandomScalar();
 
             pk.RefreshChecksum();
             return pk;
@@ -406,7 +408,7 @@ namespace PKHeX.Core
 
         private void SetPINGA(PKM pk, ITrainerInfo SAV, EncounterCriteria criteria)
         {
-            var pi = PersonalTable.USUM.GetFormeEntry(Species, Form);
+            var pi = PersonalTable.SWSH.GetFormeEntry(Species, Form);
             pk.Nature = (int)criteria.GetNature(Nature == -1 ? Core.Nature.Random : (Nature)Nature);
             pk.StatNature = pk.Nature;
             pk.Gender = criteria.GetGender(Gender, pi);
@@ -470,18 +472,19 @@ namespace PKHeX.Core
         {
             int[] finalIVs = new int[6];
             var ivflag = Array.Find(IVs, iv => (byte)(iv - 0xFC) < 3);
+            var rng = Util.Rand;
             if (ivflag == 0) // Random IVs
             {
                 for (int i = 0; i < 6; i++)
-                    finalIVs[i] = IVs[i] > 31 ? Util.Rand.Next(pk.MaxIV + 1) : IVs[i];
+                    finalIVs[i] = IVs[i] > 31 ? rng.Next(32) : IVs[i];
             }
             else // 1/2/3 perfect IVs
             {
                 int IVCount = ivflag - 0xFB;
-                do { finalIVs[Util.Rand.Next(6)] = 31; }
+                do { finalIVs[rng.Next(6)] = 31; }
                 while (finalIVs.Count(iv => iv == 31) < IVCount);
                 for (int i = 0; i < 6; i++)
-                    finalIVs[i] = finalIVs[i] == 31 ? pk.MaxIV : Util.Rand.Next(pk.MaxIV + 1);
+                    finalIVs[i] = finalIVs[i] == 31 ? 31 : rng.Next(32);
             }
             pk.IVs = finalIVs;
         }

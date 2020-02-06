@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PKHeX.Core
@@ -12,7 +13,7 @@ namespace PKHeX.Core
     public class EncounterTrade : IEncounterable, IMoveset, IGeneration, ILocation, IContestStats, IVersion
     {
         public int Species { get; set; }
-        public int[] Moves { get; set; } = Array.Empty<int>();
+        public IReadOnlyList<int> Moves { get; set; } = Array.Empty<int>();
         public int Level { get; set; }
         public int LevelMin => Level;
         public int LevelMax => 100;
@@ -24,7 +25,7 @@ namespace PKHeX.Core
         public int TID { get; set; }
         public int SID { get; set; }
         public GameVersion Version { get; set; } = GameVersion.Any;
-        public int[] IVs { get; set; } = Array.Empty<int>();
+        public IReadOnlyList<int> IVs { get; set; } = Array.Empty<int>();
         public int Form { get; set; }
         public virtual Shiny Shiny { get; set; } = Shiny.Never;
         public int Gender { get; set; } = -1;
@@ -35,7 +36,7 @@ namespace PKHeX.Core
         public int Ball { get; set; } = 4;
         public int CurrentLevel { get; set; } = -1;
 
-        public int[] Contest { set => this.SetContestStats(value); }
+        internal IReadOnlyList<int> Contest { set => this.SetContestStats(value); }
         public int CNT_Cool { get; set; }
         public int CNT_Beauty { get; set; }
         public int CNT_Cute { get; set; }
@@ -58,12 +59,12 @@ namespace PKHeX.Core
         public bool Fateful { get; set; }
         public bool IsNicknamed { get; set; } = true;
 
-        public string[] Nicknames { get; internal set; } = Array.Empty<string>();
-        public string[] TrainerNames { get; internal set; } = Array.Empty<string>();
-        public string GetNickname(int language) => (uint)language < Nicknames.Length ? Nicknames[language] : string.Empty;
-        public string GetOT(int language) => (uint)language < TrainerNames.Length ? TrainerNames[language] : string.Empty;
-        public bool HasNickname => Nicknames.Length != 0;
-        public bool HasTrainerName => TrainerNames.Length != 0;
+        public IReadOnlyList<string> Nicknames { get; internal set; } = Array.Empty<string>();
+        public IReadOnlyList<string> TrainerNames { get; internal set; } = Array.Empty<string>();
+        public string GetNickname(int language) => (uint)language < Nicknames.Count ? Nicknames[language] : string.Empty;
+        public string GetOT(int language) => (uint)language < TrainerNames.Count ? TrainerNames[language] : string.Empty;
+        public bool HasNickname => Nicknames.Count != 0;
+        public bool HasTrainerName => TrainerNames.Count != 0;
 
         public static readonly int[] DefaultMetLocation =
         {
@@ -104,8 +105,8 @@ namespace PKHeX.Core
             pk.Species = species;
             pk.AltForm = Form;
             pk.Language = lang;
-            pk.OT_Name = pk.Format == 1 ? StringConverter12.G1TradeOTStr : GetOT(lang) ?? SAV.OT;
-            pk.OT_Gender = GetOT(lang) != null ? Math.Max(0, OTGender) : SAV.Gender;
+            pk.OT_Name = pk.Format == 1 ? StringConverter12.G1TradeOTStr : HasTrainerName ? GetOT(lang) : SAV.OT;
+            pk.OT_Gender = HasTrainerName ? Math.Max(0, OTGender) : SAV.Gender;
             pk.SetNickname(GetNickname(lang));
 
             pk.CurrentLevel = level;
@@ -165,7 +166,7 @@ namespace PKHeX.Core
 
         protected void SetIVs(PKM pk)
         {
-            if (IVs.Length != 0)
+            if (IVs.Count != 0)
                 pk.SetRandomIVs(IVs, 0);
             else
                 pk.SetRandomIVs(flawless: 3);
@@ -173,10 +174,10 @@ namespace PKHeX.Core
 
         private void SetMoves(PKM pk, GameVersion version, int level)
         {
-            var moves = Moves.Length != 0 ? Moves : MoveLevelUp.GetEncounterMoves(pk, level, version);
+            var moves = Moves.Count != 0 ? Moves : MoveLevelUp.GetEncounterMoves(pk, level, version);
             if (pk.Format == 1 && moves.All(z => z == 0))
                 moves = ((PersonalInfoG1)PersonalTable.RB[Species]).Moves;
-            pk.Moves = moves;
+            pk.SetMoves(moves);
             pk.SetMaximumPPCurrent(moves);
         }
 
@@ -227,7 +228,7 @@ namespace PKHeX.Core
 
         public virtual bool IsMatch(PKM pkm, int lvl)
         {
-            if (IVs.Length != 0)
+            if (IVs.Count != 0)
             {
                 if (!Legal.GetIsFixedIVSequenceValidSkipRand(IVs, pkm))
                     return false;
@@ -336,7 +337,7 @@ namespace PKHeX.Core
             {
                 if (Gender >= 0 && Gender != pkm.Gender)
                     return false;
-                if (IVs.Length != 0 && !Legal.GetIsFixedIVSequenceValidNoRand(IVs, pkm))
+                if (IVs.Count != 0 && !Legal.GetIsFixedIVSequenceValidNoRand(IVs, pkm))
                     return false;
             }
             if (pkm.Met_Location != 0 && pkm.Format == 2 && pkm.Met_Location != 126)
@@ -390,8 +391,13 @@ namespace PKHeX.Core
 
             const int start = (int)LanguageID.English;
             const int end = (int)LanguageID.Spanish;
-            var index = Array.FindIndex(TrainerNames, start, end - start + 1, w => w == OT);
-            return index >= 0;
+
+            for (int i = start; i <= end; i++)
+            {
+                if (TrainerNames[i] == OT)
+                    return true;
+            }
+            return false;
         }
     }
 

@@ -7,6 +7,7 @@ namespace PKHeX.Core
     {
         public RaidSpawnList8(SaveFile sav, SCBlock block) : base(sav, block.Data) { }
 
+        public const int RaidCountLegal = 100;
         public const int RaidCount = 111;
 
         public RaidSpawnDetail GetRaid(int entry) => new RaidSpawnDetail(Data, entry * RaidSpawnDetail.SIZE);
@@ -21,10 +22,11 @@ namespace PKHeX.Core
 
         public void ActivateAllRaids(bool rare, bool isEvent)
         {
-            for (int i = 0; i < RaidCount; i++)
+            var rnd = Util.Rand;
+            for (int i = 0; i < RaidCountLegal; i++)
             {
-                var star = (byte)Util.Rand.Next(0, 5);
-                var rand = (byte)Util.Rand.Next(0, 100);
+                var star = (byte)rnd.Next(0, 5);
+                var rand = (byte)rnd.Next(0, 100);
                 GetRaid(i).Activate(star, rand, rare, isEvent);
             }
         }
@@ -107,11 +109,18 @@ namespace PKHeX.Core
             set => DenType = 2; // set the 1th bit; the 2th bit has a similar-unknown function (?)
         }
 
+        [Category(Derived), Description("Wishing Piece was used for Raid encounter.")]
+        public bool IsWishingPiece
+        {
+            get => IsActive && ((Flags >> 0) & 1) == 1;
+            set => Flags = (byte)((Flags & ~1) | (value ? 1 : 0));
+        }
+
         [Category(Derived), Description("Distribution (event) details used for Raid encounter.")]
         public bool IsEvent
         {
             get => IsActive && ((Flags >> 1) & 1) == 1;
-            set => Flags = (byte)((Flags & 2) | (value ? 2 : 0));
+            set => Flags = (byte)((Flags & ~2) | (value ? 2 : 0));
         }
 
         public void Activate(byte star, byte rand, bool rare = false, bool isEvent = false)
@@ -125,6 +134,16 @@ namespace PKHeX.Core
         public string Dump() => $"{Hash:X16}\t{Seed:X16}\t{Stars}\t{RandRoll:00}\t{DenType:X2}\t{Flags:X2}";
 
         // The games use a xoroshiro RNG to create the PKM from the stored seed.
+    }
+
+    public enum RaidType : byte
+    {
+        None = 0,
+        Common = 1,
+        Rare = 2,
+        CommonWish = 3,
+        RareWish = 4,
+        Event = 5,
     }
 
     public class TypeConverterU64 : TypeConverter

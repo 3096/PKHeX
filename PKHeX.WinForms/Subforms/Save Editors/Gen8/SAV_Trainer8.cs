@@ -32,8 +32,12 @@ namespace PKHeX.WinForms
             NUD_BP.Value = Math.Min(SAV.Misc.BP, 9999);
             GetComboBoxes();
             GetTextBoxes();
+            GetMiscValues();
 
             TC_Editor.TabPages.Remove(Tab_BadgeMap); // needs more work
+
+            ChangeTitleScreenIndex(null, EventArgs.Empty);
+            ChangeTrainerCardIndex(null, EventArgs.Empty);
 
             //Loading = false;
         }
@@ -58,6 +62,7 @@ namespace PKHeX.WinForms
             TB_TrainerCardName.Text = SAV.Blocks.TrainerCard.OT;
             TB_TrainerCardNumber.Text = SAV.Blocks.TrainerCard.Number;
             MT_TrainerCardID.Text = SAV.Blocks.TrainerCard.TrainerID.ToString("000000");
+            MT_RotoRally.Text = SAV.Blocks.TrainerCard.RotoRallyScore.ToString();
             trainerID1.LoadIDValues(SAV);
             MT_Money.Text = SAV.Money.ToString();
             MT_Watt.Text = SAV.MyStatus.Watt.ToString();
@@ -100,9 +105,31 @@ namespace PKHeX.WinForms
             // CAL_HoFTime.Value = time;
         }
 
+        private void GetMiscValues()
+        {
+            MT_BattleTowerSinglesWin.Text = SAV.GetValue(SaveBlockAccessor8SWSH.KBattleTowerSinglesVictory).ToString();
+            MT_BattleTowerDoublesWin.Text = SAV.GetValue(SaveBlockAccessor8SWSH.KBattleTowerDoublesVictory).ToString();
+            MT_BattleTowerSinglesStreak.Text = SAV.GetValue(SaveBlockAccessor8SWSH.KBattleTowerSinglesStreak).ToString();
+            MT_BattleTowerDoublesStreak.Text = SAV.GetValue(SaveBlockAccessor8SWSH.KBattleTowerDoublesStreak).ToString();
+        }
+
+        private void SaveMiscValues()
+        {
+            var singles = Math.Min(9_999_999u, Util.ToUInt32(MT_BattleTowerSinglesWin.Text));
+            var doubles = Math.Min(9_999_999u, Util.ToUInt32(MT_BattleTowerDoublesWin.Text));
+            SAV.SetValue(SaveBlockAccessor8SWSH.KBattleTowerSinglesVictory, singles);
+            SAV.SetValue(SaveBlockAccessor8SWSH.KBattleTowerDoublesVictory, doubles);
+            SAV.SetValue(SaveBlockAccessor8SWSH.KBattleTowerSinglesStreak, (ushort)Math.Min(300, Util.ToUInt32(MT_BattleTowerSinglesStreak.Text)));
+            SAV.SetValue(SaveBlockAccessor8SWSH.KBattleTowerDoublesStreak, (ushort)Math.Min(300, Util.ToUInt32(MT_BattleTowerDoublesStreak.Text)));
+
+            SAV.SetRecord(Records.G8BattleTowerSingleWin, (int)singles);
+            SAV.SetRecord(Records.G8BattleTowerDoubleWin, (int)doubles);
+        }
+
         private void Save()
         {
             SaveTrainerInfo();
+            SaveMiscValues();
         }
 
         private void SaveTrainerInfo()
@@ -114,8 +141,9 @@ namespace PKHeX.WinForms
             SAV.Language = WinFormsUtil.GetIndex(CB_Language);
             SAV.OT = TB_OTName.Text;
             SAV.Blocks.TrainerCard.OT = TB_TrainerCardName.Text;
-            SAV.Blocks.TrainerCard.Number = TB_TrainerCardNumber.Text;
+            SAV.Blocks.MyStatus.Number = SAV.Blocks.TrainerCard.Number = TB_TrainerCardNumber.Text;
             SAV.Blocks.TrainerCard.TrainerID = Util.ToInt32(MT_TrainerCardID.Text);
+            SAV.Blocks.TrainerCard.RotoRallyScore = Util.ToInt32(MT_RotoRally.Text);
 
             var watt = Util.ToUInt32(MT_Watt.Text);
             SAV.MyStatus.Watt = watt;
@@ -182,6 +210,32 @@ namespace PKHeX.WinForms
         {
             //if (!Loading)
             //    MapUpdated = true;
+        }
+
+        private void ChangeTrainerCardIndex(object sender, EventArgs e)
+        {
+            var index = (int)NUD_ShowTrainerCard.Value - 1;
+            PG_ShowTrainerCard.SelectedObject = SAV.Blocks.TrainerCard.ViewPoke(index);
+        }
+
+        private void ChangeTitleScreenIndex(object sender, EventArgs e)
+        {
+            var index = (int)NUD_ShowTitleScreen.Value - 1;
+            PG_ShowTitleScreen.SelectedObject = SAV.Blocks.TitleScreen.ViewPoke(index);
+        }
+
+        private void B_CopyFromPartyToTrainerCard_Click(object sender, EventArgs e)
+        {
+            SAV.Blocks.TrainerCard.SetPartyData();
+            System.Media.SystemSounds.Asterisk.Play();
+            ChangeTrainerCardIndex(null, EventArgs.Empty);
+        }
+
+        private void B_CopyFromPartyToTitleScreen_Click(object sender, EventArgs e)
+        {
+            SAV.Blocks.TitleScreen.SetPartyData();
+            System.Media.SystemSounds.Asterisk.Play();
+            ChangeTitleScreenIndex(null, EventArgs.Empty);
         }
 
         //private string UpdateTip(int index)

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace PKHeX.Core
 {
@@ -28,7 +30,7 @@ namespace PKHeX.Core
         public int Language { get; set; } = -1;
         public override int Species { get; set; }
         public override bool IsEgg { get; set; }
-        public override int[] Moves { get; set; } = Array.Empty<int>();
+        public override IReadOnlyList<int> Moves { get; set; } = Array.Empty<int>();
         public bool NotDistributed { get; set; }
         public Shiny Shiny { get; set; } = Shiny.Random;
         public bool Fateful { get; set; } // Obedience Flag
@@ -103,7 +105,7 @@ namespace PKHeX.Core
                 pk.SID = SID;
 
                 pk.Language = (int)GetSafeLanguage((LanguageID)SAV.Language, (LanguageID)Language);
-                pk.OT_Name = OT_Name ?? SAV.OT;
+                pk.OT_Name = !string.IsNullOrWhiteSpace(OT_Name) ? OT_Name : SAV.OT;
                 if (IsEgg)
                     pk.IsEgg = true; // lang should be set to japanese by IsEgg setter
             }
@@ -146,16 +148,16 @@ namespace PKHeX.Core
 
         private void SetMoves(PK3 pk)
         {
-            if (Moves.Length == 0) // not completely defined
+            if (Moves.Count == 0) // not completely defined
                 Moves = Legal.GetBaseEggMoves(pk, Species, Form, (GameVersion)pk.Version, Level);
-            if (Moves.Length != 4)
+            if (Moves.Count != 4)
             {
-                var moves = Moves;
+                var moves = Moves.ToArray();
                 Array.Resize(ref moves, 4);
                 Moves = moves;
             }
 
-            pk.Moves = Moves;
+            pk.SetMoves(Moves);
             pk.SetMaximumPPCurrent(Moves);
         }
 
@@ -219,7 +221,7 @@ namespace PKHeX.Core
                 if (TID != -1 && TID != pkm.TID) return false;
                 if (OT_Gender < 3 && OT_Gender != pkm.OT_Gender) return false;
                 var wcOT = OT_Name;
-                if (wcOT != null)
+                if (!string.IsNullOrEmpty(wcOT))
                 {
                     if (wcOT.Length > 7) // Colosseum Mattle Ho-Oh
                     {

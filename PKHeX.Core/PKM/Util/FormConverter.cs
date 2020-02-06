@@ -262,7 +262,7 @@ namespace PKHeX.Core
                         forms[555], // Standard
                         forms[943], // Zen
                         forms[Galarian], // Standard
-                        forms[943] + " " + forms[Galarian], // Zen
+                        forms[Galarian] + " " + forms[943], // Zen
                     };
                 }
 
@@ -967,7 +967,7 @@ namespace PKHeX.Core
 
         public static string[] GetFormArgumentStrings(int species, int form, int generation)
         {
-            if (generation < 8)
+            if (generation <= 5)
                 return EMPTY;
 
             static string[] GetBlank(int count)

@@ -1,10 +1,28 @@
 ﻿using System;
+using System.Text;
 
 namespace PKHeX.Core
 {
     public sealed class MyStatus8 : SaveBlock
     {
         public MyStatus8(SAV8SWSH sav, SCBlock block) : base(sav, block.Data) { }
+
+        public string Number
+        {
+            get => Encoding.ASCII.GetString(Data, 0x01, 3);
+            set
+            {
+                for (int i = 0; i < 3; i++)
+                    Data[0x01 + i] = (byte)(value.Length > i ? value[i] : '\0');
+                SAV.Edited = true;
+            }
+        }
+
+        public ulong Skin // aka the base model
+        {
+            get => BitConverter.ToUInt64(Data, 0x08);
+            set => BitConverter.GetBytes(value).CopyTo(Data, 0x08);
+        }
 
         public ulong Hair
         {
@@ -90,7 +108,15 @@ namespace PKHeX.Core
             set => BitConverter.GetBytes(value).CopyTo(Data, 0x78);
         }
 
-        // 80 - A0
+        // 80 - 87
+
+        public ulong MomSkin // aka the base model
+        {
+            get => BitConverter.ToUInt64(Data, 0x88);
+            set => BitConverter.GetBytes(value).CopyTo(Data, 0x88);
+        }
+
+        // 8C - 9F
 
         public int TID
         {
@@ -120,7 +146,17 @@ namespace PKHeX.Core
         public int Language
         {
             get => Data[Offset + 0xA7];
-            set => Data[Offset + 0xA7] = (byte)value;
+            set
+            {
+                if (value == Language)
+                    return;
+                Data[Offset + 0xA7] = (byte) value;
+
+                // For runtime language, the game shifts all languages above Language 6 (unused) down one.
+                if (value >= 6)
+                    value--;
+                ((SAV8SWSH)SAV).SetValue(SaveBlockAccessor8SWSH.KGameLanguage, (uint)value);
+            }
         }
 
         public string OT

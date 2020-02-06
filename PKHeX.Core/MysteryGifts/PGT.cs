@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PKHeX.Core
@@ -108,14 +109,14 @@ namespace PKHeX.Core
 
         private GiftType PGTGiftType { get => (GiftType)Data[0]; set => Data[0] = (byte)value; }
         public bool IsHatched => PGTGiftType == GiftType.Pokémon;
-        public override bool IsEgg { get => PGTGiftType == GiftType.PokémonEgg; set { if (value) { PGTGiftType = GiftType.PokémonEgg; PK.IsEgg = true; } } }
+        public override bool IsEgg { get => PGTGiftType == GiftType.PokémonEgg || IsManaphyEgg; set { if (value) { PGTGiftType = GiftType.PokémonEgg; PK.IsEgg = true; } } }
         public bool IsManaphyEgg { get => PGTGiftType == GiftType.ManaphyEgg; set { if (value) PGTGiftType = GiftType.ManaphyEgg; } }
-        public override bool EggEncounter => IsEgg || IsManaphyEgg;
+        public override bool EggEncounter => IsEgg;
         public override bool IsItem { get => PGTGiftType == GiftType.Item; set { if (value) PGTGiftType = GiftType.Item; } }
         public override bool IsPokémon { get => PGTGiftType == GiftType.Pokémon || PGTGiftType == GiftType.PokémonEgg || PGTGiftType == GiftType.ManaphyEgg; set { } }
 
         public override int Species { get => IsManaphyEgg ? 490 : PK.Species; set => PK.Species = value; }
-        public override int[] Moves { get => PK.Moves; set => PK.Moves = value; }
+        public override IReadOnlyList<int> Moves { get => PK.Moves; set => PK.SetMoves(value); }
         public override int HeldItem { get => PK.HeldItem; set => PK.HeldItem = value; }
         public override bool IsShiny => PK.IsShiny;
         public override int Gender { get => PK.Gender; set => PK.Gender = value; }

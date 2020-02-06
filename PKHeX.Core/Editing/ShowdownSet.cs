@@ -554,7 +554,7 @@ namespace PKHeX.Core
         private string ParseLineMove(string line)
         {
             const int hiddenPower = 237;
-            string moveString = line.Substring(line[1] == ' ' ? 2 : 1).Trim();
+            string moveString = line.Substring(line[1] == ' ' ? 2 : 1).Split('/')[0].Trim();
             if (!moveString.StartsWith(Strings.Move[hiddenPower])) // Hidden Power
                 return moveString; // regular move
 
@@ -692,9 +692,9 @@ namespace PKHeX.Core
                     return $"C-{form}";
 
                 // Necrozma
-                case (int)Core.Species.Necrozma when form == "Dusk-Mane":
+                case (int)Core.Species.Necrozma when form == "Dusk-Mane" || form == "Dusk Mane":
                     return "Dusk";
-                case (int)Core.Species.Necrozma when form == "Dawn-Wings":
+                case (int)Core.Species.Necrozma when form == "Dawn-Wings" || form == "Dawn Wings":
                     return "Dawn";
 
                 // Toxtricity
@@ -703,8 +703,8 @@ namespace PKHeX.Core
 
                 // Darmanitan
                 case (int)Core.Species.Darmanitan:
-                    if (form == "Zen-Galar")
-                        return "Zen Galar";
+                    if (form == "Galar-Zen")
+                        return "Galar Zen";
                     return form;
 
                 default:

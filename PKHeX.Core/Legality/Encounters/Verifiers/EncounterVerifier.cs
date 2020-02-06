@@ -112,10 +112,10 @@ namespace PKHeX.Core
         }
 
         // Eggs
-        private static CheckResult VerifyEncounterEgg(PKM pkm)
+        private static CheckResult VerifyEncounterEgg(PKM pkm, bool checkSpecies = true)
         {
             // Check Species
-            if (Legal.NoHatchFromEgg.Contains(pkm.Species))
+            if (checkSpecies && Legal.NoHatchFromEgg.Contains(pkm.Species))
                 return new CheckResult(Severity.Invalid, LEggSpecies, CheckIdentifier.Encounter);
 
             switch (pkm.GenNumber)
@@ -180,7 +180,14 @@ namespace PKHeX.Core
         private static CheckResult VerifyEncounterEgg4(PKM pkm)
         {
             if (pkm.Format == 4)
-                return VerifyEncounterEggLevelLoc(pkm, 0, Legal.Met_HGSS_Hatch);
+            {
+                // Traded eggs don't update Version, like in future games.
+                var locations = pkm.WasTradedEgg ? Legal.ValidMet_4 :
+                    pkm.HGSS ? Legal.ValidMet_HGSS :
+                    pkm.Pt ? Legal.ValidMet_Pt :
+                    Legal.ValidMet_DP;
+                return VerifyEncounterEggLevelLoc(pkm, 0, locations);
+            }
             if (pkm.IsEgg)
                 return new CheckResult(Severity.Invalid, LTransferEgg, CheckIdentifier.Encounter);
 
@@ -357,7 +364,7 @@ namespace PKHeX.Core
             }
             if (!pkm.IsEgg && MatchedGift.IsEgg) // hatched
             {
-                var hatchCheck = VerifyEncounterEgg(pkm);
+                var hatchCheck = VerifyEncounterEgg(pkm, false);
                 if (!hatchCheck.Valid)
                     return hatchCheck;
             }

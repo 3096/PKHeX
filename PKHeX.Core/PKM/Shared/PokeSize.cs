@@ -38,10 +38,17 @@
                 PokeSize.AV =>  (Util.Rand.Next(0xA0) + 0x30),
                 PokeSize.L =>   (Util.Rand.Next(0x20) + 0xD0),
                 PokeSize.XL =>  (Util.Rand.Next(0x10) + 0xF0),
-                _ => GetRandomPokeSize() // Official code sums two randoms for triangular distribution.
+                _ => GetRandomScalar()
             };
         }
 
-        public static int GetRandomPokeSize() => Util.Rand.Next(0x80) + Util.Rand.Next(0x81);
+        /// <summary>
+        /// Gets a random size scalar with a triangular distribution (copying official implementation).
+        /// </summary>
+        public static int GetRandomScalar()
+        {
+            var rnd = Util.Rand;
+            return rnd.Next(0x81) + rnd.Next(0x80);
+        }
     }
 }

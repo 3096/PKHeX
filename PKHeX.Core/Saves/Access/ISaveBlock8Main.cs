@@ -14,5 +14,8 @@
         Daycare8 Daycare { get; }
         Record8 Records { get; }
         TrainerCard8 TrainerCard { get; }
+        RaidSpawnList8 Raid { get; }
+        TitleScreen8 TitleScreen { get; }
+        TeamIndexes8 TeamIndexes { get; }
     }
 }

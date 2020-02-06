@@ -61,31 +61,15 @@ namespace PKHeX.Core
         internal static readonly EggMoves7[] EggMovesSWSH = EggMoves7.GetArray(Data.UnpackMini(Util.GetBinaryResource("eggmove_swsh.pkl"), "ss"));
         internal static readonly Learnset[] LevelUpSWSH = LearnsetReader.GetArray(Data.UnpackMini(Util.GetBinaryResource("lvlmove_swsh.pkl"), "ss"));
 
-        // Setup Help
-        static Legal()
+        internal static IReadOnlyList<int>[] GetValidMovesAllGens(PKM pkm, IReadOnlyList<EvoCriteria>[] evoChains, int minLvLG1 = 1, int minLvLG2 = 1, bool LVL = true, bool Tutor = true, bool Machine = true, bool MoveReminder = true, bool RemoveTransferHM = true)
         {
-            // Misc Fixes to Data pertaining to legality constraints
-
-            // Remove Punishment from USUM Murkrow (no species can pass it #1829)
-            // DONE: Egg Move Data for EggMovesUSUM no longer has it at the end
-
-            // Prevent Silvally from being tutored Fire/Water Pledge (logic can only tutor one, and Grass is first)
-            var pi = PersonalTable.USUM[773];
-            pi.TypeTutors[1] = false; // fire
-            pi.TypeTutors[2] = false; // water
-        }
-
-        public static void RefreshMGDB(string localDbPath) => EncounterEvent.RefreshMGDB(localDbPath);
-
-        internal static List<int>[] GetValidMovesAllGens(PKM pkm, IReadOnlyList<EvoCriteria>[] evoChains, int minLvLG1 = 1, int minLvLG2 = 1, bool LVL = true, bool Tutor = true, bool Machine = true, bool MoveReminder = true, bool RemoveTransferHM = true)
-        {
-            var Moves = new List<int>[evoChains.Length];
+            var Moves = new IReadOnlyList<int>[evoChains.Length];
             for (int i = 1; i < evoChains.Length; i++)
             {
                 if (evoChains[i].Count != 0)
                     Moves[i] = GetValidMoves(pkm, evoChains[i], i, minLvLG1, minLvLG2, LVL, Tutor, Machine, MoveReminder, RemoveTransferHM).ToList();
                 else
-                    Moves[i] = new List<int>();
+                    Moves[i] = Array.Empty<int>();
             }
             return Moves;
         }
@@ -113,10 +97,10 @@ namespace PKHeX.Core
 
         internal static IEnumerable<int> GetValidRelearn(PKM pkm, int species, int form, bool inheritlvlmoves, GameVersion version = GameVersion.Any)
         {
-            var r = new List<int> { 0 };
             if (pkm.GenNumber < 6)
-                return r;
+                return Array.Empty<int>();
 
+            var r = new List<int>();
             r.AddRange(MoveEgg.GetRelearnLVLMoves(pkm, species, 1, form, version));
 
             if (pkm.Format == 6 && pkm.Species != 678)
@@ -128,27 +112,19 @@ namespace PKHeX.Core
             return r.Distinct();
         }
 
-        internal static int[] GetShedinjaEvolveMoves(PKM pkm, int generation, int lvl = -1)
+        internal static int[] GetShedinjaEvolveMoves(PKM pkm, int generation, int lvl)
         {
-            if (lvl == -1)
-                lvl = pkm.CurrentLevel;
-            if (pkm.Species != 292 || lvl < 20)
+            if (pkm.Species != (int)Species.Shedinja || lvl < 20)
                 return Array.Empty<int>();
 
-            // If nincada evolves into Ninjask an learn in the evolution a move from ninjask learnset pool
-            // Shedinja would appear with that move learned. Only one move above level 20 allowed, only in generations 3 and 4
-            switch (generation)
+            // If Nincada evolves into Ninjask and learns a move after evolution from Ninjask's LevelUp data, Shedinja would appear with that move.
+            // Only one move above level 20 is allowed; check the count of Ninjask moves elsewhere.
+            return generation switch
             {
-                case 3: // Ninjask have the same learnset in every gen 3 games
-                    if (pkm.InhabitedGeneration(3))
-                        return LevelUpE[291].GetMoves(lvl, 20);
-                    break;
-                case 4: // Ninjask have the same learnset in every gen 4 games
-                    if (pkm.InhabitedGeneration(4))
-                        return LevelUpPt[291].GetMoves(lvl, 20);
-                    break;
-            }
-            return Array.Empty<int>();
+                3 when pkm.InhabitedGeneration(3) => LevelUpE[(int)Species.Ninjask].GetMoves(lvl, 20), // Same LevelUp data in all Gen3 games
+                4 when pkm.InhabitedGeneration(4) => LevelUpPt[(int)Species.Ninjask].GetMoves(lvl, 20), // Same LevelUp data in all Gen4 games
+                _ => Array.Empty<int>(),
+            };
         }
 
         internal static int GetShedinjaMoveLevel(int species, int move, int generation)
@@ -472,39 +448,6 @@ namespace PKHeX.Core
             };
         }
 
-        private static bool[] GetReleasedHeldItems(int generation)
-        {
-            return generation switch
-            {
-                2 => ReleasedHeldItems_2,
-                3 => ReleasedHeldItems_3,
-                4 => ReleasedHeldItems_4,
-                5 => ReleasedHeldItems_5,
-                6 => ReleasedHeldItems_6,
-                7 => ReleasedHeldItems_7,
-                8 => ReleasedHeldItems_8,
-                _ => Array.Empty<bool>()
-            };
-        }
-
-        internal static bool IsHeldItemAllowed(PKM pkm)
-        {
-            if (pkm is PB7)
-                return pkm.HeldItem == 0;
-            return IsHeldItemAllowed(pkm.HeldItem, pkm.Format);
-        }
-
-        private static bool IsHeldItemAllowed(int item, int generation)
-        {
-            if (item == 0)
-                return true;
-            if (item < 0)
-                return false;
-
-            var items = GetReleasedHeldItems(generation);
-            return items.Length > item && items[item];
-        }
-
         private static bool IsEvolvedFormChange(PKM pkm)
         {
             if (pkm.IsEgg)
@@ -634,23 +577,6 @@ namespace PKHeX.Core
             return false;
         }
 
-        public static int GetLowestLevel(PKM pkm, int startLevel)
-        {
-            if (startLevel == -1)
-                startLevel = 100;
-
-            var table = EvolutionTree.GetEvolutionTree(pkm, pkm.Format);
-            int count = 1;
-            for (int i = 100; i >= startLevel; i--)
-            {
-                var evos = table.GetValidPreEvolutions(pkm, maxLevel: i, minLevel: startLevel, skipChecks: true);
-                if (evos.Count < count) // lost an evolution, prior level was minimum current level
-                    return evos.Max(evo => evo.Level) + 1;
-                count = evos.Count;
-            }
-            return startLevel;
-        }
-
         internal static bool GetCanLearnMachineMove(PKM pkm, int move, int generation, GameVersion version = GameVersion.Any)
         {
             return GetValidMoves(pkm, version, EvolutionChain.GetValidPreEvolutions(pkm), generation, Machine: true).Contains(move);
@@ -773,8 +699,6 @@ namespace PKHeX.Core
         private static IEnumerable<int> GetValidMoves(PKM pkm, GameVersion Version, IReadOnlyList<EvoCriteria> vs, int generation, int minLvLG1 = 1, int minLvLG2 = 1, bool LVL = false, bool Relearn = false, bool Tutor = false, bool Machine = false, bool MoveReminder = true, bool RemoveTransferHM = true)
         {
             var r = new List<int> { 0 };
-            if (vs.Count == 0)
-                return r;
             int species = pkm.Species;
 
             if (FormChangeMoves.Contains(species)) // Deoxys & Shaymin & Giratina (others don't have extra but whatever)
@@ -887,18 +811,25 @@ namespace PKHeX.Core
         public static string GetG1OT_GFMew(int lang) => lang == (int)LanguageID.Japanese ? "ゲーフリ" : "GF";
         public static string GetG5OT_NSparkle(int lang) => lang == (int)LanguageID.Japanese ? "Ｎ" : "N";
 
+        public const string Stadium1JP = "スタジアム";
+
         public static string GetGBStadiumOTName(bool jp, GameVersion s)
         {
             if (jp)
-                return "スタジアム";
+                return Stadium1JP;
             return s == GameVersion.Stadium2 ? "Stadium" : "STADIUM";
         }
 
         public static int GetGBStadiumOTID(bool jp, GameVersion s)
         {
             if (jp)
-                return s == GameVersion.Stadium2 ? 2000 : 1999;
+                return GetGBStadiumOTID_JPN(s);
             return 2000;
+        }
+
+        public static int GetGBStadiumOTID_JPN(GameVersion s)
+        {
+            return s == GameVersion.Stadium2 ? 2000 : 1999;
         }
 
         public static int GetMaxLengthOT(int gen, LanguageID lang)

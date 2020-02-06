@@ -34,7 +34,7 @@ namespace PKHeX.Core
         {
             pk.TID = info.TID;
             var m = moves ?? pk.Moves;
-            var vers = versions?.Length >= 1 ? versions : GameUtil.GetVersionsWithinRange(pk, pk.Format);
+            var vers = versions.Length >= 1 ? versions : GameUtil.GetVersionsWithinRange(pk, pk.Format);
             foreach (var ver in vers)
             {
                 var encs = GenerateVersionEncounters(pk, m, ver);
@@ -139,9 +139,21 @@ namespace PKHeX.Core
             IEnumerable<int> moves = Legal.GetValidMoves(pk, dl, generation);
             if (generation >= 8)
             {
+                // Shared Egg Moves via daycare
+                // Any egg move can be obtained
                 var evo = dl[dl.Count - 1];
                 var shared = MoveEgg.GetEggMoves(pk, evo.Species, evo.Form, GameVersion.SW);
-                moves = moves.Concat(shared);
+                return moves.Concat(shared);
+            }
+            if (dl[0].Species == (int)Species.Shedinja)
+            {
+                // Leveling up Nincada in Gen3/4 levels up, evolves to Ninjask, applies moves for Ninjask, then spawns Shedinja with the current moveset.
+                // Future games spawn the Shedinja before doing Ninjask moves, so this is a special case.
+                // Can't get more than the evolved-at level move; >=2 special moves will get caught by the legality checker later.
+                if (generation == 3)
+                    return moves.Concat(Legal.LevelUpE[(int)Species.Ninjask].GetMoves(100, 20));
+                if (generation == 4)
+                    return moves.Concat(Legal.LevelUpPt[(int)Species.Ninjask].GetMoves(100, 20));
             }
             return moves;
         }
@@ -231,8 +243,9 @@ namespace PKHeX.Core
                     continue;
                 }
 
-                var em = enc.Moves;
-                if (em != null && !needs.Except(em).Any())
+                // Some rare encounters have special moves hidden in the Relearn section (Gen7 Wormhole Ho-Oh). Include relearn moves
+                var em = enc.Moves.Concat(enc.Relearn);
+                if (!needs.Except(em).Any())
                     yield return enc;
             }
         }

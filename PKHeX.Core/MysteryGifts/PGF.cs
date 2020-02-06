@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace PKHeX.Core
@@ -155,7 +156,7 @@ namespace PKHeX.Core
         public bool IsNicknamed => Nickname.Length > 0;
         public override bool IsShiny => PIDType == 2;
         public override int Location { get => MetLocation; set => MetLocation = (ushort)value; }
-        public override int[] Moves => new[] { Move1, Move2, Move3, Move4 };
+        public override IReadOnlyList<int> Moves => new[] { Move1, Move2, Move3, Move4 };
         public override bool IsPokémon { get => CardType == 1; set { if (value) CardType = 1; } }
         public override bool IsItem { get => CardType == 2; set { if (value) CardType = 2; } }
         public bool IsPower { get => CardType == 3; set { if (value) CardType = 3; } }
@@ -165,6 +166,8 @@ namespace PKHeX.Core
             if (!IsPokémon)
                 throw new ArgumentException(nameof(IsPokémon));
 
+            var rnd = Util.Rand;
+
             var dt = DateTime.Now;
             if (Day == 0)
             {
@@ -173,14 +176,14 @@ namespace PKHeX.Core
                 Year = (byte)dt.Year;
             }
 
-            int currentLevel = Level > 0 ? Level : Util.Rand.Next(100) + 1;
+            int currentLevel = Level > 0 ? Level : rnd.Next(1, 101);
             var pi = PersonalTable.B2W2.GetFormeEntry(Species, Form);
             PK5 pk = new PK5
             {
                 Species = Species,
                 HeldItem = HeldItem,
                 Met_Level = currentLevel,
-                Nature = Nature != -1 ? Nature : Util.Rand.Next(25),
+                Nature = Nature != -1 ? Nature : rnd.Next(25),
                 AltForm = Form,
                 Version = OriginGame == 0 ? SAV.Game : OriginGame,
                 Language = Language == 0 ? SAV.Language : Language,
@@ -222,7 +225,7 @@ namespace PKHeX.Core
                 FatefulEncounter = true,
             };
             if (SAV.Generation > 5 && OriginGame == 0) // Gen6+, give random gen5 game
-                pk.Version = (int)GameVersion.W + Util.Rand.Next(4);
+                pk.Version = (int)GameVersion.W + rnd.Next(4);
 
             if (Move1 == 0) // No moves defined
                 pk.Moves = MoveLevelUp.GetEncounterMoves(Species, Form, Level, (GameVersion)pk.Version);
@@ -303,7 +306,8 @@ namespace PKHeX.Core
 
             pk.PID = Util.Rand32();
             // Force Gender
-            do { pk.PID = (pk.PID & 0xFFFFFF00) | (uint)Util.Rand.Next(0x100); }
+            var rnd = Util.Rand;
+            do { pk.PID = (pk.PID & 0xFFFFFF00) | (uint)rnd.Next(0x100); }
             while (!pk.IsGenderValid());
 
             if (PIDType == 2) // Always
@@ -326,8 +330,9 @@ namespace PKHeX.Core
         private void SetIVs(PKM pk)
         {
             int[] finalIVs = new int[6];
+            var rnd = Util.Rand;
             for (int i = 0; i < IVs.Length; i++)
-                finalIVs[i] = IVs[i] == 0xFF ? Util.Rand.Next(pk.MaxIV + 1) : IVs[i];
+                finalIVs[i] = IVs[i] == 0xFF ? rnd.Next(32) : IVs[i];
             pk.IVs = finalIVs;
         }
 

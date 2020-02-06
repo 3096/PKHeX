@@ -17,14 +17,14 @@ namespace PKHeX.Core
         {
             Data = Array.Empty<byte>();
             AllBlocks = blocks;
-            Blocks = new SaveBlockAccessorSWSH(this);
+            Blocks = new SaveBlockAccessor8SWSH(this);
             Initialize();
         }
 
         public SAV8SWSH()
         {
             AllBlocks = Meta8.GetBlankDataSWSH();
-            Blocks = new SaveBlockAccessorSWSH(this);
+            Blocks = new SaveBlockAccessor8SWSH(this);
             Initialize();
             ClearBoxes();
         }
@@ -50,7 +50,7 @@ namespace PKHeX.Core
         public override IReadOnlyList<ushort> HeldItems => Legal.HeldItems_SWSH;
 
         #region Blocks
-        public SaveBlockAccessorSWSH Blocks { get; }
+        public SaveBlockAccessor8SWSH Blocks { get; }
         public override Box8 BoxInfo => Blocks.BoxInfo;
         public override Party8 PartyInfo => Blocks.PartyInfo;
         public override MyItem Items => Blocks.Items;
@@ -63,6 +63,18 @@ namespace PKHeX.Core
         public override Daycare8 Daycare => Blocks.Daycare;
         public override Record8 Records => Blocks.Records;
         public override TrainerCard8 TrainerCard => Blocks.TrainerCard;
+        public override RaidSpawnList8 Raid => Blocks.Raid;
+        public override TitleScreen8 TitleScreen => Blocks.TitleScreen;
+        public override TeamIndexes8 TeamIndexes => Blocks.TeamIndexes;
+
+        public object GetValue(uint key) => Blocks.GetBlockValue(key);
+
+        public void SetValue(uint key, object value)
+        {
+            if (!Exportable)
+                return;
+            Blocks.SetBlockValue(key, value);
+        }
 
         #endregion
         public override SaveFile Clone() => new SAV8SWSH(BAK, AllBlocks.Select(z => z.Clone()).ToArray());
@@ -79,6 +91,7 @@ namespace PKHeX.Core
             Box = 0;
             Party = 0;
             PokeDex = 0;
+            TeamIndexes.LoadBattleTeams();
         }
 
         public int GetRecord(int recordID) => Records.GetRecord(recordID);
@@ -86,5 +99,18 @@ namespace PKHeX.Core
         public int GetRecordMax(int recordID) => Records.GetRecordMax(recordID);
         public int GetRecordOffset(int recordID) => Records.GetRecordOffset(recordID);
         public int RecordCount => Record8.RecordCount;
+
+        public override StorageSlotFlag GetSlotFlags(int index)
+        {
+            int team = Array.IndexOf(TeamIndexes.TeamSlots, index);
+            if (team < 0)
+                return StorageSlotFlag.None;
+
+            team /= 6;
+            var val = (StorageSlotFlag)((int)StorageSlotFlag.BattleTeam1 << team);
+            if (TeamIndexes.GetIsTeamLocked(team))
+                val |= StorageSlotFlag.Locked;
+            return val;
+        }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PKHeX.Core
@@ -12,7 +13,7 @@ namespace PKHeX.Core
     public class EncounterStatic : IEncounterable, IMoveset, IGeneration, ILocation, IContestStats, IVersion, IRelearn
     {
         public int Species { get; set; }
-        public int[] Moves { get; set; } = Array.Empty<int>();
+        public IReadOnlyList<int> Moves { get; set; } = Array.Empty<int>();
         public virtual int Level { get; set; }
 
         public virtual int LevelMin => Level;
@@ -22,17 +23,17 @@ namespace PKHeX.Core
         public int Ability { get; set; }
         public int Form { get; set; }
         public virtual Shiny Shiny { get; set; } = Shiny.Random;
-        public int[] Relearn { get; set; } = Array.Empty<int>();
+        public IReadOnlyList<int> Relearn { get; set; } = Array.Empty<int>();
         public int Gender { get; set; } = -1;
         public int EggLocation { get; set; }
         public Nature Nature { get; set; } = Nature.Random;
         public bool Gift { get; set; }
         public int Ball { get; set; } = 4; // Only checked when is Gift
         public GameVersion Version { get; set; } = GameVersion.Any;
-        public int[] IVs { get; set; } = Array.Empty<int>();
+        public IReadOnlyList<int> IVs { get; set; } = Array.Empty<int>();
         public int FlawlessIVCount { get; set; }
 
-        public int[] Contest { set => this.SetContestStats(value); }
+        internal IReadOnlyList<int> Contest { set => this.SetContestStats(value); }
         public int CNT_Cool { get; set; }
         public int CNT_Beauty { get; set; }
         public int CNT_Cute { get; set; }
@@ -49,20 +50,7 @@ namespace PKHeX.Core
         public bool Roaming { get; set; }
         public bool EggEncounter => EggLocation > 0;
 
-        private void CloneArrays()
-        {
-            // dereference original arrays with new copies
-            Moves = Moves.Length == 0 ? Moves : (int[])Moves.Clone();
-            Relearn = Relearn.Length == 0 ? Relearn : (int[])Relearn.Clone();
-            IVs = IVs.Length == 0 ? IVs : (int[])IVs.Clone();
-        }
-
-        internal virtual EncounterStatic Clone()
-        {
-            var result = (EncounterStatic)MemberwiseClone();
-            result.CloneArrays();
-            return result;
-        }
+        internal EncounterStatic Clone() => (EncounterStatic)MemberwiseClone();
 
         private const string _name = "Static Encounter";
         public string Name => _name;
@@ -116,7 +104,7 @@ namespace PKHeX.Core
 
             if (RibbonWishing && pk is IRibbonSetEvent4 e4)
                 e4.RibbonWishing = true;
-            if (this is EncounterStaticN n)
+            if (this is EncounterStatic5N n)
                 n.SetNPokemonData((PK5)pk, lang);
             if (pk is IContestStats s)
                 this.CopyContestStatsTo(s);
@@ -192,8 +180,8 @@ namespace PKHeX.Core
 
         private void SetEncounterMoves(PKM pk, GameVersion version, int level)
         {
-            var moves = Moves.Length > 0 ? Moves : MoveLevelUp.GetEncounterMoves(pk, level, version);
-            pk.Moves = moves;
+            var moves = Moves.Count > 0 ? Moves : MoveLevelUp.GetEncounterMoves(pk, level, version);
+            pk.SetMoves(moves);
             pk.SetMaximumPPCurrent(moves);
         }
 
@@ -212,7 +200,7 @@ namespace PKHeX.Core
 
         protected void SetIVs(PKM pk)
         {
-            if (IVs.Length != 0)
+            if (IVs.Count != 0)
                 pk.SetRandomIVs(IVs, FlawlessIVCount);
             else if (FlawlessIVCount > 0)
                 pk.SetRandomIVs(flawless: FlawlessIVCount);
@@ -275,7 +263,7 @@ namespace PKHeX.Core
             if (!IsMatchForm(pkm))
                 return false;
 
-            if (EggLocation == Locations.Daycare5 && Relearn.Length == 0 && pkm.RelearnMoves.Any(z => z != 0)) // gen7 eevee edge case
+            if (EggLocation == Locations.Daycare5 && Relearn.Count == 0 && pkm.RelearnMoves.Any(z => z != 0)) // gen7 eevee edge case
                 return false;
 
             if (!IsMatchIVs(pkm))
@@ -297,7 +285,7 @@ namespace PKHeX.Core
 
         private bool IsMatchIVs(PKM pkm)
         {
-            if (IVs.Length == 0)
+            if (IVs.Count == 0)
                 return true; // nothing to check, IVs are random
             if (Generation <= 2 && pkm.Format > 2)
                 return true; // IVs are regenerated on VC transfer upward

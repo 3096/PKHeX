@@ -23,12 +23,15 @@ namespace PKHeX.WinForms
     public partial class Main : Form
     {
         private static readonly Version CurrentProgramVersion = Assembly.GetExecutingAssembly().GetName().Version;
-
+        static async Task<LegalityAnalysis> GetLegal(PKM pkm)
+        {
+            return await Task.Run(() => new LegalityAnalysis(pkm));
+        }
         public Main()
         {
             Form splash = null; // popup a splash screen in another thread
             new Task(() => (splash = new SplashScreen()).ShowDialog()).Start();
-            new Task(() => Legal.RefreshMGDB(MGDatabasePath)).Start();
+            new Task(() => EncounterEvent.RefreshMGDB(MGDatabasePath)).Start();
             string[] args = Environment.GetCommandLineArgs();
             FormLoadInitialSettings(args, out bool showChangelog, out bool BAKprompt);
 
@@ -952,7 +955,7 @@ namespace PKHeX.WinForms
 
             Menu_Options.DropDown.Close();
 
-            InitializeStrings();
+            LocalizeUtil.InitializeStrings(CurrentLanguage, C_SAV.SAV, HaX);
             WinFormsUtil.TranslateInterface(this, CurrentLanguage); // Translate the UI to language.
             if (C_SAV.SAV != null)
             {
@@ -962,26 +965,6 @@ namespace PKHeX.WinForms
                 PKME_Tabs.ChangeLanguage(sav, pk);
                 Text = GetProgramTitle(sav);
             }
-        }
-
-        private void InitializeStrings()
-        {
-            string l = CurrentLanguage;
-            GameInfo.Strings = GameInfo.GetStrings(l);
-            if (C_SAV.SAV != null)
-                GameInfo.FilteredSources = new FilteredGameDataSource(C_SAV.SAV, GameInfo.Sources, HaX);
-
-            // Update Legality Strings
-            Task.Run(() => {
-                    var lang = Thread.CurrentThread.CurrentCulture.TwoLetterISOLanguageName.Substring(0, 2);
-                    Util.SetLocalization(typeof(LegalityCheckStrings), lang);
-                    Util.SetLocalization(typeof(MessageStrings), lang);
-                    RibbonStrings.ResetDictionary(GameInfo.Strings.ribbons);
-                });
-
-            // Update Legality Analysis strings
-            LegalityAnalysis.MoveStrings = GameInfo.Strings.movelist;
-            LegalityAnalysis.SpeciesStrings = GameInfo.Strings.specieslist;
         }
         #endregion
 
